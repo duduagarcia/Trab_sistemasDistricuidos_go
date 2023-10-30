@@ -1,3 +1,8 @@
+// ATENÇÃO GAROTOS DE PROGRAMA!!!!!!!!!!!!!!!!!!
+// esse dimex, aparenta rodar mas ele não escreve no arquivo
+// ent vou deixar ele aqui pq ta no folder básico, mas a princípio, ñ serve para NADA
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 // Construido como parte da disciplina: Sistemas Distribuidos - PUCRS - Escola Politecnica
 //  Professor: Fernando Dotti  (https://fldotti.github.io/)
 /* fmt.Println("go run usaDIMEX.go 0 127.0.0.1:5000  127.0.0.1:6001  127.0.0.1:7002 ")
@@ -38,35 +43,14 @@ func main() {
 	var dmx *DIMEX.DIMEX_Module = DIMEX.NewDIMEX(addresses, id, true)
 	fmt.Println(dmx)
 
-	file, err := os.OpenFile("./mxOUT.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close() // Ensure the file is closed at the end of the function
-
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	for {
 		fmt.Println("[ APP id: ", id, " PEDE   MX ]")
 		dmx.Req <- DIMEX.ENTER
-		//fmt.Println("[ APP id: ", id, " ESPERA MX ]")
+		fmt.Println("[ APP id: ", id, " ESPERA MX ]")
 		<-dmx.Ind //
-
-		_, err = file.WriteString("|") // marca entrada no arquivo
-		if err != nil {
-			fmt.Println("Error writing to file:", err)
-			return
-		}
-
 		fmt.Println("[ APP id: ", id, " *EM*   MX ]")
-
-		_, err = file.WriteString(".") // marca saida no arquivo
-		if err != nil {
-			fmt.Println("Error writing to file:", err)
-			return
-		}
-
 		dmx.Req <- DIMEX.EXIT //
 		fmt.Println("[ APP id: ", id, " FORA   MX ]")
 	}

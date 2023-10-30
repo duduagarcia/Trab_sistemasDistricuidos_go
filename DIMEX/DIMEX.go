@@ -119,12 +119,12 @@ func (module *DIMEX_Module) Start() {
 func (module *DIMEX_Module) handleUponReqEntry() { // segue algoritmo ... praticamente linha a linha
 	/*
 		upon event [ dmx, Entry  |  r ]  do
-		    lts.ts++
-		    myTs := lts
-		    resps := 0
-		    para todo processo p
+				lts.ts++
+				myTs := lts
+				resps := 0
+				para todo processo p
 				trigger [ pl , Send | [ reqEntry, r, myTs ]
-		    estado := queroSC
+				estado := queroSC
 	*/
 	module.lcl++                                 // proximo evento
 	module.reqTs = module.lcl                    // envio de request, pega o relogio local
@@ -141,10 +141,10 @@ func (module *DIMEX_Module) handleUponReqEntry() { // segue algoritmo ... pratic
 
 func (module *DIMEX_Module) handleUponReqExit() {
 	/*
-							upon event [ dmx, Exit  |  r  ]  do
-		       					para todo [p, r, ts ] em postergados           // para cada um que esta em waiting
-		              				trigger [ pl, Send | p , [ respOk, r ]  ]  //    	module.sendToLink(address ..., "respOK")
-		       					estado := naoQueroSC
+		upon event [ dmx, Exit  |  r  ]  do
+					 para todo [p, r, ts ] em postergados           // para cada um que esta em waiting
+								trigger [ pl, Send | p , [ respOk, r ]  ]  //    	module.sendToLink(address ..., "respOK")
+					 estado := naoQueroSC
 	*/
 	module.st = noMX // muda estado para nao quer quer acessar
 }
@@ -164,11 +164,11 @@ func (module *DIMEX_Module) sendToLink(address string, content string) {
 
 func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) { // deve estar completo conforme algoritmo.
 	/*
-							upon event [ pl, Deliver | p, [ respOk, r ] ]
-		      					resps++
-		      					se resps = N
-		      					então trigger [ dmx, Deliver | free2Access ]
-		      					estado := estouNaSC
+		upon event [ pl, Deliver | p, [ respOk, r ] ]
+					resps++
+					se resps = N
+					então trigger [ dmx, Deliver | free2Access ]
+					estado := estouNaSC
 
 	*/
 	module.nbrResps++
@@ -182,15 +182,15 @@ func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_I
 func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink_Ind_Message) {
 	// outro processo quer entrar na SC
 	/*
-							upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
-		     					se (estado == naoQueroSC)   OR
-		        					 (estado == QueroSC AND  myTs >  ts)
-		    					então  trigger [ pl, Send | p , [ respOk, r ]  ]
-		     					senão
-		        				se (estado == estouNaSC) OR
-		           					 (estado == QueroSC AND  myTs < ts)
-		        				então  postergados := postergados + [p, r ]
-		     					lts.ts := max(lts.ts, rts.ts)
+		upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
+				 se (estado == naoQueroSC)   OR
+						 (estado == QueroSC AND  myTs >  ts)
+				então  trigger [ pl, Send | p , [ respOk, r ]  ]
+				 senão
+					se (estado == estouNaSC) OR
+								(estado == QueroSC AND  myTs < ts)
+					então  postergados := postergados + [p, r ]
+				 lts.ts := max(lts.ts, rts.ts)
 	*/
 	// NO MOMENTO RESPONDENDO QUE QUALQUER UM PODE ACESSAR
 	msgTerms := strings.Split(msgOutro.Message, "||")
