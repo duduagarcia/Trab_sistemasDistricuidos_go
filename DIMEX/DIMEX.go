@@ -95,26 +95,36 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 
 func (module *DIMEX_Module) Start() {
 
+	// roda infinitamente tratando eventos
 	go func() {
 		for {
 			select {
-			case dmxR := <-module.Req: // vindo da  aplicação
+			// Se receber pedido da aplicacao (ENTER ou EXIT)
+			case dmxR := <-module.Req:
 				if dmxR == ENTER {
-					module.outDbg("app pede mx")
-					module.handleUponReqEntry() // ENTRADA DO ALGORITMO
+					// module.outDbg("app pede mx")
+
+					// Muda o estado para QUER ACESSAR
+					module.handleUponReqEntry()
 
 				} else if dmxR == EXIT {
-					module.outDbg("app libera mx")
-					module.handleUponReqExit() // ENTRADA DO ALGORITMO
+					// module.outDbg("app libera mx")
+
+					// Muda o estado para NÃO QUER ACESSAR
+					module.handleUponReqExit()
 				}
 
-			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
-				//fmt.Printf("dimex recebe da rede: ", msgOutro)
+			// Se receber mensagem da rede, ou seja, de outro processo
+			case msgOutro := <-module.Pp2plink.Ind:
+				fmt.Printf("dimex recebe da rede: ", msgOutro)
+
+				// Se for mensagem de outro processo
 				if strings.Contains(msgOutro.Message, "respOK") {
 					module.outDbg("         <<<---- responde! " + msgOutro.Message)
 					module.handleUponDeliverRespOk(msgOutro) // ENTRADA DO ALGORITMO
 
 				} else if strings.Contains(msgOutro.Message, "reqEntry") {
+
 					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
 					module.handleUponDeliverReqEntry(msgOutro) // ENTRADA DO ALGORITMO
 
@@ -130,7 +140,7 @@ func (module *DIMEX_Module) Start() {
 // ------- UPON EXIT
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) handleUponReqEntry() { // segue algoritmo ... praticamente linha a linha
+func (module *DIMEX_Module) handleUponReqEntry() {
 	/*
 					upon event [ dmx, Entry  |  r ]  do
 		    			lts.ts++
@@ -140,17 +150,20 @@ func (module *DIMEX_Module) handleUponReqEntry() { // segue algoritmo ... pratic
 							trigger [ pl , Send | [ reqEntry, r, myTs ]
 		    			estado := queroSC
 	*/
-	module.lcl++                                 // proximo evento
-	module.reqTs = module.lcl                    // envio de request, pega o relogio local
-	module.nbrResps = 0                          // zera numero de respostas
-	for i := 0; i < len(module.addresses); i++ { // envio do pedido para cada outro processo
-		if i != module.id { // nao manda para mim mesmo
-			module.sendToLink(module.addresses[i], //  aqui define-se um protocolo:
-				("||reqEntry||" + strconv.Itoa(module.id) + //       [ reqEntry||id||timestamp ]
-					"||" + strconv.Itoa(module.reqTs)))
+	module.lcl++              //Acrescenta o relógio local (lts.ts++)
+	module.reqTs = module.lcl //Timestamp do processo vai ser o relógio local (myTs := lts)
+	module.nbrResps = 0       //Número de respostas recebidas é 0 (resps := 0)
+
+	// Iterando cada processo
+	for i := 0; i < len(module.addresses); i++ {
+		// Se não for eu mesmo
+		if i != module.id {
+
+			// Mando mensagem dizendo que quero entrar na SC
+			module.sendToLink(module.addresses[i], ("REQ_ENTRY" + strconv.Itoa(module.id) + "-" + strconv.Itoa(module.reqTs)))
 		}
 	}
-	module.st = wantMX // muda estado para quer acessar
+	module.st = wantMX // muda estado dizendo que quer acessar a SC (estado := queroSC)
 }
 
 func (module *DIMEX_Module) handleUponReqExit() {
@@ -163,13 +176,6 @@ func (module *DIMEX_Module) handleUponReqExit() {
 	module.st = noMX // muda estado para nao quer quer acessar
 }
 
-func (module *DIMEX_Module) sendToLink(address string, content string) {
-	module.outDbg(" envia no pplink: " + address + "    " + content)
-	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
-		To:      address,
-		Message: content}
-}
-
 // ------------------------------------------------------------------------------------
 // ------- tratamento de mensagens de outros processos
 // ------- UPON respOK
@@ -178,33 +184,40 @@ func (module *DIMEX_Module) sendToLink(address string, content string) {
 
 func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) { // deve estar completo conforme algoritmo.
 	/*
-						upon event [ pl, Deliver | p, [ respOk, r ] ]
-		      				resps++
-		      				se resps = N
-		    				então trigger [ dmx, Deliver | free2Access ]
-		  					    estado := estouNaSC
+		upon event [ pl, Deliver | p, [ respOk, r ] ]
+		resps++
+		se resps = N
+		então trigger [ dmx, Deliver | free2Access ]
+		estado := estouNaSC
 
 	*/
-	module.nbrResps++
+	module.nbrResps++ // incrementa numero de respostas recebidas (resps++)
+
+	// Se o n° de respostas for igual um n° de processos (resps = N)
+	// len(module.addresses) - 1 = pega o tamanho do array de endereços dos processos
 	if module.nbrResps == (len(module.addresses) - 1) {
+
+		// quer dizer que todos os outros processos responderam, então libera o acesso
+
+		//  trigger [ dmx, Deliver | free2Access ]
 		module.outDbg(" resposta de todos - libera app para entrar mx")
 		module.Ind <- dmxResp{} // somente um sinal
 	}
-	module.st = inMX // muda estado para esta usando
+	module.st = inMX // muda estado para esta dentro (estado := estouNaSC)
 }
 
 func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink_Ind_Message) {
 	// outro processo quer entrar na SC
 	/*
-						upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
-		     				se (estado == naoQueroSC)   OR
-		        				 (estado == QueroSC AND  myTs >  ts)
-							então  trigger [ pl, Send | p , [ respOk, r ]  ]
-		 					senão
-		        				se (estado == estouNaSC) OR
-		           					 (estado == QueroSC AND  myTs < ts)
-		        				então  postergados := postergados + [p, r ]
-		     					lts.ts := max(lts.ts, rts.ts)
+		upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
+		se (estado == naoQueroSC)   OR
+		(estado == QueroSC AND  myTs >  ts)
+		então  trigger [ pl, Send | p , [ respOk, r ]  ]
+		senão
+			        				se (estado == estouNaSC) OR
+			           					 (estado == QueroSC AND  myTs < ts)
+														então  postergados := postergados + [p, r ]
+														lts.ts := max(lts.ts, rts.ts)
 	*/
 	// NO MOMENTO RESPONDENDO QUE QUALQUER UM PODE ACESSAR
 	msgTerms := strings.Split(msgOutro.Message, "||")
@@ -220,12 +233,12 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 // ------- funcoes de ajuda
 // ------------------------------------------------------------------------------------
 
-// func (module *DIMEX_Module) sendToLink(address string, content string, space string) {
-// 	module.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
-// 	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
-// 		To:      address,
-// 		Message: content}
-// }
+func (module *DIMEX_Module) sendToLink(address string, content string) {
+	module.outDbg(" envia no pplink: " + address + "    " + content)
+	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
+		To:      address,
+		Message: content}
+}
 
 func before(oneId, oneTs, othId, othTs int) bool {
 	if oneTs < othTs {
