@@ -1,7 +1,21 @@
 /*  Construido como parte da disciplina: FPPD - PUCRS - Escola Politecnica
     Professor: Fernando Dotti  (https://fldotti.github.io/)
     Modulo representando Algoritmo de Exclusão Mútua Distribuída:
-    Semestre 2023/1                                                      */
+    Semestre 2023/1
+	Aspectos a observar:
+	   mapeamento de módulo para estrutura
+	   inicializacao
+	   semantica de concorrência: cada evento é atômico
+	   							  módulo trata 1 por vez
+	Q U E S T A O
+	   Além de obviamente entender a estrutura ...
+	   Implementar o núcleo do algoritmo ja descrito, ou seja, o corpo das
+	   funcoes reativas a cada entrada possível:
+	   			handleUponReqEntry()  // recebe do nivel de cima (app)
+				handleUponReqExit()   // recebe do nivel de cima (app)
+				handleUponDeliverRespOk(msgOutro)   // recebe do nivel de baixo
+				handleUponDeliverReqEntry(msgOutro) // recebe do nivel de baixo
+*/
 
 package DIMEX
 
@@ -97,11 +111,11 @@ func (module *DIMEX_Module) Start() {
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
 				//fmt.Printf("dimex recebe da rede: ", msgOutro)
 				if strings.Contains(msgOutro.Message, "respOK") {
-					module.outDbg("outro proc responde " + msgOutro.Message)
+					module.outDbg("         <<<---- responde! " + msgOutro.Message)
 					module.handleUponDeliverRespOk(msgOutro) // ENTRADA DO ALGORITMO
 
 				} else if strings.Contains(msgOutro.Message, "reqEntry") {
-					module.outDbg("outro proc pede " + msgOutro.Message)
+					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
 					module.handleUponDeliverReqEntry(msgOutro) // ENTRADA DO ALGORITMO
 
 				}
