@@ -22,6 +22,7 @@ package DIMEX
 import (
 	PP2PLink "SD/PP2PLink"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -70,8 +71,8 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 	p2p := PP2PLink.NewPP2PLink(_addresses[_id], _dbg)
 
 	dmx := &DIMEX_Module{
-		Req: make(chan dmxReq, 1),
-		Ind: make(chan dmxResp, 1),
+		Req: make(chan dmxReq),
+		Ind: make(chan dmxResp),
 
 		addresses: _addresses,
 		id:        _id,
@@ -83,9 +84,6 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 
 		Pp2plink: p2p}
 
-	for i := 0; i < len(dmx.waiting); i++ {
-		dmx.waiting[i] = false
-	}
 	dmx.Start()
 	dmx.outDbg("Init DIMEX!")
 	return dmx
@@ -132,7 +130,7 @@ func (module *DIMEX_Module) Start() {
 // ------- UPON EXIT
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) handleUponReqEntry() {
+func (module *DIMEX_Module) handleUponReqEntry() { // segue algoritmo ... praticamente linha a linha
 	/*
 					upon event [ dmx, Entry  |  r ]  do
 		    			lts.ts++
@@ -142,16 +140,34 @@ func (module *DIMEX_Module) handleUponReqEntry() {
 							trigger [ pl , Send | [ reqEntry, r, myTs ]
 		    			estado := queroSC
 	*/
+	module.lcl++                                 // proximo evento
+	module.reqTs = module.lcl                    // envio de request, pega o relogio local
+	module.nbrResps = 0                          // zera numero de respostas
+	for i := 0; i < len(module.addresses); i++ { // envio do pedido para cada outro processo
+		if i != module.id { // nao manda para mim mesmo
+			module.sendToLink(module.addresses[i], //  aqui define-se um protocolo:
+				("||reqEntry||" + strconv.Itoa(module.id) + //       [ reqEntry||id||timestamp ]
+					"||" + strconv.Itoa(module.reqTs)))
+		}
+	}
+	module.st = wantMX // muda estado para quer acessar
 }
 
 func (module *DIMEX_Module) handleUponReqExit() {
 	/*
 						upon event [ dmx, Exit  |  r  ]  do
-		       				para todo [p, r, ts ] em waiting
-		          				trigger [ pl, Send | p , [ respOk, r ]  ]
+		       				para todo [p, r, ts ] em postergados           // para cada um que esta em waiting
+		          				trigger [ pl, Send | p , [ respOk, r ]  ]  //    	module.sendToLink(address ..., "respOK")
 		    				estado := naoQueroSC
-							waiting := {}
 	*/
+	module.st = noMX // muda estado para nao quer quer acessar
+}
+
+func (module *DIMEX_Module) sendToLink(address string, content string) {
+	module.outDbg(" envia no pplink: " + address + "    " + content)
+	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
+		To:      address,
+		Message: content}
 }
 
 // ------------------------------------------------------------------------------------
@@ -160,7 +176,7 @@ func (module *DIMEX_Module) handleUponReqExit() {
 // ------- UPON reqEntry
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
+func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) { // deve estar completo conforme algoritmo.
 	/*
 						upon event [ pl, Deliver | p, [ respOk, r ] ]
 		      				resps++
@@ -169,6 +185,12 @@ func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_I
 		  					    estado := estouNaSC
 
 	*/
+	module.nbrResps++
+	if module.nbrResps == (len(module.addresses) - 1) {
+		module.outDbg(" resposta de todos - libera app para entrar mx")
+		module.Ind <- dmxResp{} // somente um sinal
+	}
+	module.st = inMX // muda estado para esta usando
 }
 
 func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink_Ind_Message) {
@@ -184,18 +206,26 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 		        				então  postergados := postergados + [p, r ]
 		     					lts.ts := max(lts.ts, rts.ts)
 	*/
+	// NO MOMENTO RESPONDENDO QUE QUALQUER UM PODE ACESSAR
+	msgTerms := strings.Split(msgOutro.Message, "||")
+	idOutro, _ := strconv.Atoi(msgTerms[2]) // obtem identificador do outro processo, que vem na mensagem
+	// tsOutro, _ := strconv.Atoi(msgTerms[3]) // obtem timestamo do outro processo, que vem na mensagem
+	// fmt.Println("id ", idOutro, "   ts ", tsOutro)
+	module.sendToLink(module.addresses[idOutro], "||respOK")
+	// para deixar esperando colocar em waiting
+	// no momento todos deixando entrar
 }
 
 // ------------------------------------------------------------------------------------
 // ------- funcoes de ajuda
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) sendToLink(address string, content string, space string) {
-	module.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
-	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
-		To:      address,
-		Message: content}
-}
+// func (module *DIMEX_Module) sendToLink(address string, content string, space string) {
+// 	module.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
+// 	module.Pp2plink.Req <- PP2PLink.PP2PLink_Req_Message{
+// 		To:      address,
+// 		Message: content}
+// }
 
 func before(oneId, oneTs, othId, othTs int) bool {
 	if oneTs < othTs {

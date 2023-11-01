@@ -31,6 +31,7 @@ func main() {
 
 	lk := PP2PLink.NewPP2PLink(addresses[0], false)
 
+	// Lendo do teclado e enviando para o outro processo
 	go func() {
 		for {
 			m := <-lk.Ind
@@ -38,6 +39,7 @@ func main() {
 		}
 	}()
 
+	// Escrevendo
 	go func() {
 		for {
 			fmt.Print("Snd: ")
