@@ -1,3 +1,9 @@
+// ALUNOS:
+// - Eduardo Garcia
+// - Eduardo Riboli
+// - Jocemar Nicolodi
+// - Matheus Fernandes
+
 // Construido como parte da disciplina: Sistemas Distribuidos - PUCRS - Escola Politecnica
 //  Professor: Fernando Dotti  (https://fldotti.github.io/)
 // Uso p exemplo:

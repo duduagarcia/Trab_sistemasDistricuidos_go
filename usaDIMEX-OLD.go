@@ -1,7 +1,8 @@
-// ATENÇÃO GAROTOS DE PROGRAMA!!!!!!!!!!!!!!!!!!
-// esse dimex, aparenta rodar mas ele não escreve no arquivo
-// ent vou deixar ele aqui pq ta no folder básico, mas a princípio, ñ serve para NADA
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// ALUNOS:
+// - Eduardo Garcia
+// - Eduardo Riboli
+// - Jocemar Nicolodi
+// - Matheus Fernandes
 
 // Construido como parte da disciplina: Sistemas Distribuidos - PUCRS - Escola Politecnica
 //  Professor: Fernando Dotti  (https://fldotti.github.io/)
